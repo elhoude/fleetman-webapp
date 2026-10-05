@@ -1,39 +1,48 @@
 pipeline {
-   agent any
+  agent any
 
-   environment {
-     // You must set the following environment variables
-     // ORGANIZATION_NAME
-     // YOUR_DOCKERHUB_USERNAME (it doesn't matter if you don't have one)
-     
-     SERVICE_NAME = "fleetman-webapp"
-     REPOSITORY_TAG="${YOUR_DOCKERHUB_USERNAME}/${ORGANIZATION_NAME}-${SERVICE_NAME}:${BUILD_ID}"
-   }
+  environment {
+    DOCKERHUB_USER = 'nourelhoude'
+    IMAGE = "${DOCKERHUB_USER}/fleetman-webapp"
+  }
 
-   stages {
-      stage('Preparation') {
-         steps {
-            cleanWs()
-            git credentialsId: 'GitHub', url: "https://github.com/${ORGANIZATION_NAME}/${SERVICE_NAME}"
-         }
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
       }
-      stage('Build') {
-         steps {
-            sh 'echo No build required for Webapp.'
-         }
-      }
+    }
 
-      stage('Build and Push Image') {
-         steps {
-           sh 'docker image build -t ${REPOSITORY_TAG} .'
-         }
+    stage('Build image') {
+      steps {
+        sh 'docker build -t $IMAGE:$BUILD_NUMBER -t $IMAGE:latest .'
       }
+    }
 
-      stage('Deploy to Cluster') {
-          steps {
-            sh 'envsubst < ${WORKSPACE}/deploy.yaml | kubectl apply -f -'
-          }
+    stage('Push image') {
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'U', passwordVariable: 'P')]) {
+          sh 'echo $P | docker login -u $U --password-stdin'
+          sh 'docker push $IMAGE:$BUILD_NUMBER'
+          sh 'docker push $IMAGE:latest'
+        }
       }
-   }
+    }
+
+    stage('Deploy to Kubernetes') {
+      steps {
+        sh 'kubectl set image deployment/webapp webapp=$IMAGE:$BUILD_NUMBER'
+        sh 'kubectl rollout status deployment/webapp --timeout=120s'
+      }
+    }
+  }
+
+  post {
+    success {
+      echo "Pipeline réussi : image $IMAGE:$BUILD_NUMBER déployée."
+    }
+    failure {
+      echo "Échec du pipeline."
+    }
+  }
 }
-
