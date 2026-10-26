@@ -11,7 +11,7 @@ pipeline {
       steps { checkout scm }
     }
 
-        stage('SonarQube analysis') {
+          stage('SonarQube analysis') {
       steps {
         withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
           sh '''
@@ -21,7 +21,9 @@ pipeline {
               -e SONAR_TOKEN=$SONAR_TOKEN \
               -v "$WORKSPACE:/usr/src" \
               sonarsource/sonar-scanner-cli \
-              -Dsonar.projectKey=fleetman-webapp -Dsonar.sources=.
+              -Dsonar.projectKey=fleetman-webapp \
+              -Dsonar.sources=. \
+              -Dsonar.working.directory=/tmp/scannerwork
           '''
         }
       }
