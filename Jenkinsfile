@@ -11,11 +11,12 @@ pipeline {
       steps { checkout scm }
     }
 
-    stage('SonarQube analysis') {
+        stage('SonarQube analysis') {
       steps {
         withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
           sh '''
             docker run --rm -u $(id -u):$(id -g) \
+              -e SONAR_USER_HOME=/tmp/.sonar \
               -e SONAR_HOST_URL=http://192.168.186.140:9000 \
               -e SONAR_TOKEN=$SONAR_TOKEN \
               -v "$WORKSPACE:/usr/src" \
