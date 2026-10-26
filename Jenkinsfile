@@ -8,15 +8,26 @@ pipeline {
 
   stages {
     stage('Checkout') {
+      steps { checkout scm }
+    }
+
+    stage('SonarQube analysis') {
       steps {
-        checkout scm
+        withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+          sh '''
+            docker run --rm -u $(id -u):$(id -g) \
+              -e SONAR_HOST_URL=http://192.168.186.140:9000 \
+              -e SONAR_TOKEN=$SONAR_TOKEN \
+              -v "$WORKSPACE:/usr/src" \
+              sonarsource/sonar-scanner-cli \
+              -Dsonar.projectKey=fleetman-webapp -Dsonar.sources=.
+          '''
+        }
       }
     }
 
     stage('Build image') {
-      steps {
-        sh 'docker build -t $IMAGE:$BUILD_NUMBER -t $IMAGE:latest .'
-      }
+      steps { sh 'docker build -t $IMAGE:$BUILD_NUMBER -t $IMAGE:latest .' }
     }
 
     stage('Push image') {
@@ -38,11 +49,7 @@ pipeline {
   }
 
   post {
-    success {
-      echo "Pipeline réussi : image $IMAGE:$BUILD_NUMBER déployée."
-    }
-    failure {
-      echo "Échec du pipeline."
-    }
+    success { echo "Pipeline réussi : image $IMAGE:$BUILD_NUMBER déployée." }
+    failure { echo "Échec du pipeline." }
   }
 }
